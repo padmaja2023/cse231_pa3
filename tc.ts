@@ -49,10 +49,9 @@ export function tcProgram(p: Array<Stmt<any>>): Array<Stmt<Type>> {
 
 export function tcExpr(e: Expr<any>, locals: VarEnv, globals: VarEnv, clsEnv: ClassEnv): Expr<Type> {
   switch (e.tag) {
-    case "literal": {
-      const lit = tcLiteral(e.value);
-      return { ...e, a: lit };
-    }
+    case "number": return { ...e, a: "int" };
+    case "true": return { ...e, a: "bool" };
+    case "false": return { ...e, a: "bool" };
     case "id": {
       if (!locals.has(e.name)) {
         throw new Error("TypeError: " + e.name + " has not been defined.");
@@ -437,8 +436,8 @@ export function traverseMethod(methodDefs: Array<Stmt<any>>, varDefs: Array<Stmt
 }
 
 export function tcLiteral(literal: Literal): Type {
-  switch (literal.tag) {
-    case "number":
+  switch (literal.type) {
+    case "int":
       return "int";
     case "bool":
       return "bool";

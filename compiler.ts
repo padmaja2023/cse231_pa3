@@ -41,7 +41,7 @@ export function opStmts(binOP: BinOp) {
   }
 }
 
-export async function run_compiler(watSource: string, config: any): Promise<number> {
+export async function runCompiler(watSource: string, config: any): Promise<number> {
   const wabtApi = await wabt();
 
   const parsed = wabtApi.parseWat("example", watSource);
@@ -53,14 +53,9 @@ export async function run_compiler(watSource: string, config: any): Promise<numb
 
 export function codeGenExpr(expr: Expr<Type>, locals: Env): Array<string> {
   switch (expr.tag) {
-    case "literal":
-      if (expr.value.tag == "number") { return [`(i32.const ${expr.value.value})`]; }
-      else if (expr.value.tag == "bool") {
-        if (expr.value.value) { return [`(i32.const 1)`]; }
-        else { return [`(i32.const 0)`]; }
-      } else {
-        return [`(i32.const 0)`];
-      }
+    case "number": return [`(i32.const ${expr.value})`];
+    case "true": return [`(i32.const 1)`];
+    case "false": return [`(i32.const 0)`];
     case "id":
       if (expr.name == "none") {
         return [];

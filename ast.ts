@@ -32,7 +32,9 @@ export type Stmt<A> =
   | { a?: A, tag: "clsdef", name: string, varDefs: Array<Stmt<A>>, methodDefs: Array<Stmt<A>> }
 
 export type Expr<A> =
-  | { a?: A, tag: "literal", value: Literal }
+  | { a?: A, tag: "number", value: number }
+  | { a?: A, tag: "true" }
+  | { a?: A, tag: "false" }
   | { a?: A, tag: "uniop", expr: Expr<A>, op: string }
   | { a?: A, tag: "binop", left: Expr<A>, op: BinOp, right: Expr<A> }
   | { a?: A, tag: "paranexpr", expr: Expr<A> }
@@ -69,8 +71,8 @@ export enum BinOp {
 }
 
 export type Literal =
-  | { tag: "bool", value: boolean }
-  | { tag: "number", value: number }
+  | { type: Type, value: string }
+  | { type: Type, value: number }
 
 export type Type =
   | "int"

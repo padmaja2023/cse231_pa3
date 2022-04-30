@@ -1,4 +1,4 @@
-import {compile, run} from './compiler';
+import {compile, runCompiler} from './compiler';
 
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.log(wat)
       const code = document.getElementById("generated-code");
       code.textContent = wat;
-      const result = await run(wat, importObject);
+      const result = await runCompiler(wat, importObject);
       output.textContent += String(result);
       output.setAttribute("style", "color: black");
     }

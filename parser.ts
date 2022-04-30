@@ -229,10 +229,13 @@ export function traverseParameters(s: string, t: TreeCursor): Array<Parameter> {
 
 export function traverseExpr(s: string, t: TreeCursor): Expr<any> {
   switch (t.type.name) {
-    case "Number":
     case "Boolean":
+      if(s.substring(t.from, t.to) === "True") { return { tag: "true" }; }
+      else { return { tag: "false" }; }
     case "None":
-      return { tag: "literal", value: traverseLiteral(s, t) };
+      return {tag:"id", name: "none", a:"none"};
+    case "Number":
+      return { tag: "number", value: Number(s.substring(t.from, t.to)) };
     case "VariableName":
       return { tag: "id", name: s.substring(t.from, t.to) };
     case "UnaryExpression":
@@ -360,17 +363,4 @@ export function traverseArguments(c: TreeCursor, s: string): Expr<any>[] {
   }
   c.parent();       // Pop to ArgList
   return args;
-}
-
-export function traverseLiteral(s: string, c: TreeCursor): Literal {
-  switch (c.type.name) {
-    case "Number":
-      const num = Number(s.substring(c.from, c.to));
-      return { tag: "number", value: num };
-    case "Boolean":
-      const bool = s.substring(c.from, c.to) === "True";
-      return { tag: "bool", value: bool };
-    default:
-      throw new Error("ParseError: Could not parse literal at " + c.node.from + " " + c.node.to);
-  }
 }

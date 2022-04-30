@@ -1,6 +1,6 @@
 import { compile } from './compiler';
-import { parse } from './parser';
-import { tc } from './tc';
+import { parseProgram } from './parser';
+import { tcProgram } from './tc';
 
 const py_1 = `
 def f(a: int) -> int:
@@ -46,9 +46,9 @@ while (i < 3):
   i = i + 1
 `
 
-const p = parse(py_1);
+const p = parseProgram(py_1);
 console.log(JSON.stringify(p, null, 2))
-var [typed, gEnv] = tc(p);
+var typed = tcProgram(p);
 console.log(JSON.stringify(typed, null, 2))
 // console.log(gEnv.funcs)
 console.log(compile(py_1))
