@@ -222,9 +222,9 @@ export function tcStmt(s: Stmt<any>, classname: string, class_vars: Map<string, 
         }
       }
       if (s.name == "__init__") {
-        if (s.ret == "none" || s.ret == "int" || s.ret == "bool") {
-          throw new Error("TYPE ERROR: Incorrect return value");
-        }
+        // if (s.ret == "none" || s.ret == "int" || s.ret == "bool") {
+          // throw new Error("TYPE ERROR: Incorrect return value");
+        // }
         if (typeof s.ret === "object" && s.ret.class !== classname) {
           throw new Error("TYPE ERROR: Incorrect return value");
         }
