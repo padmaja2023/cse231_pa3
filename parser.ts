@@ -370,8 +370,6 @@ export function traverseLiteral(s: string, c: TreeCursor): Literal {
     case "Boolean":
       const bool = s.substring(c.from, c.to) === "True";
       return { tag: "bool", value: bool };
-    case "None":
-      return { tag: "none" };
     default:
       throw new Error("ParseError: Could not parse literal at " + c.node.from + " " + c.node.to);
   }

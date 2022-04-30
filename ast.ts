@@ -34,7 +34,7 @@ export type Stmt<A> =
 export type Expr<A> =
   | { a?: A, tag: "literal", value: Literal }
   | { a?: A, tag: "uniop", expr: Expr<A>, op: string }
-  | { a?: A, tag: "binop", left: Expr<A>, op: string, right: Expr<A> }
+  | { a?: A, tag: "binop", left: Expr<A>, op: BinOp, right: Expr<A> }
   | { a?: A, tag: "paranexpr", expr: Expr<A> }
   | { a?: A, tag: "id", name: string, global?: boolean }
   | { a?: A, tag: "object", name: string, value: Expr<A>[] }
@@ -69,7 +69,6 @@ export enum BinOp {
 }
 
 export type Literal =
-  | { tag: "none" }
   | { tag: "bool", value: boolean }
   | { tag: "number", value: number }
 

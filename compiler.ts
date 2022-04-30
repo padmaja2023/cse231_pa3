@@ -4,25 +4,41 @@ import { parseProgram } from './parser';
 import { tcProgram } from './tc';
 
 type Env = Map<string, boolean>;
+type ClsEnv = {
+  clsVars: Map<string, Map<string, [number, Expr<any>]>>,
+  clsLen: Map<string, number>
+}
 
-let classvars = new Map<string, Map<string, [number, Expr<any>]>>();
-let classsize = new Map<string, number>();
+const clsEnv: ClsEnv = {
+  clsVars: new Map(),
+  clsLen: new Map()
+}
 
-function variableNames(stmts: Stmt<Type>[]): string[] {
-  const vars: string[] = [];
+function variableNames(stmts: Stmt<Type>[]) : string[] {
+  const vars : string[] = [];
   stmts.forEach((stmt) => {
-    if (stmt.tag === "vardef") { vars.push(stmt.name); }
+    if(stmt.tag === "vardef") { vars.push(stmt.name); }
   });
   return vars;
 }
-function classdefs(stmts: Stmt<Type>[]): Stmt<Type>[] {
-  return stmts.filter(stmt => stmt.tag === "class_def");
-}
-function nonclassdefs(stmts: Stmt<Type>[]): Stmt<Type>[] {
-  return stmts.filter(stmt => stmt.tag !== "class_def");
-}
-function varsFunsStmts(stmts: Stmt<Type>[]): [string[], Stmt<Type>[], Stmt<Type>[]] {
-  return [variableNames(stmts), classdefs(stmts), nonclassdefs(stmts)];
+
+export function opStmts(binOP: BinOp) {
+  switch (binOP) {
+    case "+": return [`i32.add`];
+    case "-": return [`i32.sub`];
+    case "*": return [`i32.mul`];
+    case "//": return [`i32.div_s`];
+    case "%": return [`i32.rem_s`];
+    case "==": return [`i32.eq`];
+    case "!=": return [`i32.ne`];
+    case ">=": return [`i32.ge_s`];
+    case "<=": return [`i32.le_s`];
+    case ">": return [`i32.gt_s`];
+    case "<": return [`i32.lt_s`];
+    case "is": return [`i32.eq`];
+    default:
+      throw new Error(`CompileError: Unhandled or unknown op: ${binOP}`);
+  }
 }
 
 export async function run_compiler(watSource: string, config: any): Promise<number> {
@@ -37,12 +53,15 @@ export async function run_compiler(watSource: string, config: any): Promise<numb
 
 export function codeGenExpr(expr: Expr<Type>, locals: Env): Array<string> {
   switch (expr.tag) {
-    case "number": return [`(i32.const ${expr.value})`];
-    case "true": return [`(i32.const 1)`];
-    case "false": return [`(i32.const 0)`];
+    case "literal":
+      if (expr.value.tag == "number") { return [`(i32.const ${expr.value.value})`]; }
+      else if (expr.value.tag == "bool") {
+        if (expr.value.value) { return [`(i32.const 1)`]; }
+        else { return [`(i32.const 0)`]; }
+      } else {
+        return [`(i32.const 0)`];
+      }
     case "id":
-      // Since we type-checked for making sure all variable exist, here we
-      // just check if it's a local variable and assume it is global if not
       if (expr.name == "none") {
         return [];
       }
@@ -52,26 +71,33 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env): Array<string> {
       else {
         return [`(global.get $${expr.name})`];
       }
-    case "unary": {
-      var opstmts = op_exps.get(expr.op);
-      var stmts = codeGenExpr(expr.expr, locals);
+    case "uniop": {
       if (expr.op === "not") {
-        return stmts.concat(`(call $not_operator)`);
+        return [`(i32.const 1)`, ...codeGenExpr(expr.expr, locals), ...opStmts(BinOp.Minus)];
       }
-      return [`(i32.const 0)`].concat(stmts, opstmts);
+      if (expr.op === "-") {
+        return [`(i32.const -1)`, ...codeGenExpr(expr.expr, locals), ...opStmts(BinOp.Mul)];
+      }
+      throw new Error("CompileError: uniOp")
     }
-    case "classvar": {
+    case "binop": {
+      const lhsExprs = codeGenExpr(expr.left, locals);
+      const rhsExprs = codeGenExpr(expr.right, locals);
+      const opstmts = opStmts(expr.op);
+      return [...lhsExprs, ...rhsExprs, ...opstmts];
+    }
+    case "clsvar": {
       var val_exp: Array<string> = codeGenExpr(expr.expr, locals);
       var member_name = expr.name;
       var index = 0;
       if (typeof expr.expr.a == "object") {
-        index = classvars.get(expr.expr.a.class).get(member_name)[0] * 4;
+        index = clsEnv.clsVars.get(expr.expr.a.class).get(member_name)[0] * 4;
       }
       val_exp.push(`(i32.add (i32.const ${index}))`);
       val_exp.push(`i32.load`);
       return val_exp
     }
-    case "classmethod":
+    case "clsmethod":
       {
         var val_exp = codeGenExpr(expr.expr, locals);
         val_exp = val_exp.concat(expr.args.map(e => codeGenExpr(e, locals)).flat());
@@ -86,14 +112,13 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env): Array<string> {
     case "constructor": {
       var classname = expr.name;
       var wasm_stmts: Array<string> = [];
-      var size = classsize.get(classname);
-      classvars.get(classname).forEach((value: [number, Expr<any>], key: string) => {
-        var variable_name = key;
+      var size = clsEnv.clsLen.get(classname);
+      clsEnv.clsVars.get(classname).forEach((value: [number, Expr<any>], key: string) => {
         var index = value[0] * 4;
         var varr_value: any = value[1];
-        if (value[1].tag == "number") {
-          varr_value = value[1].value;
-        }
+        // if (value[1].a == "number") {
+          // varr_value = value[1].value;
+        // }
         wasm_stmts.push(`(global.get $heap)`);
         wasm_stmts.push(`(i32.add (i32.const ${index}))`);
         wasm_stmts.push(`(i32.const ${varr_value})`);
@@ -104,21 +129,6 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env): Array<string> {
       wasm_stmts.push(`(i32.add (i32.const ${size * 4}))`);
       wasm_stmts.push(`(global.set $heap)`);
       return wasm_stmts;
-    }
-    // case "classmethod":{}
-    case "binop": {
-      const lhsExprs = codeGenExpr(expr.lhs, locals);
-      const rhsExprs = codeGenExpr(expr.rhs, locals);
-      const opstmts = op_exps.get(expr.op);
-      if (expr.op === "is") {
-        if (lhsExprs.length == 0) {
-          lhsExprs.push(`(i32.const 0)`);
-        }
-        if (rhsExprs.length == 0) {
-          rhsExprs.push(`(i32.const 0)`);
-        }
-      }
-      return [...lhsExprs, ...rhsExprs, ...[opstmts]];
     }
     case "print":
       const valStmts = expr.args.map(e => codeGenExpr(e, locals)).flat();
@@ -143,7 +153,6 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, classname: string, al
         if_body = if_body.concat(st);
       });
       const ifbody = if_body.flat().join("\n");
-
       var elifExists = false;
       var elseExists = false;
       if (stmt.elifcond != undefined) {
@@ -155,7 +164,6 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, classname: string, al
         var elifbody = elif_body.flat().join("\n");
         elifExists = true;
       }
-
       if (stmt.elsebody.length > 0) {
         var else_body: Array<string> = [];
         stmt.elsebody.forEach((b) => {
@@ -165,7 +173,6 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, classname: string, al
         var elsebody = else_body.flat().join("\n");
         elseExists = true;
       }
-
       if (elifExists && elseExists) {
         return [`${ifcond} ( if  
         (then
@@ -202,16 +209,16 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, classname: string, al
       ))`]
       }
     }
-    case "class_def": {
+    case "clsdef": {
       let methods: Array<string> = []
       stmt.methodDefs.forEach(s => {
-        if (s.tag == "define") {
+        if (s.tag == "funcdef") {
           methods = methods.concat(codeGenStmt(s, locals, stmt.name, allFuns));
         }
       });
       return methods;
     }
-    case "define":
+    case "funcdef":
       const withParamsAndVariables = new Map<string, boolean>(locals.entries());
 
       // Construct the environment for the function body
@@ -269,11 +276,11 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, classname: string, al
         }
       }
       else {
-        if (stmt.name.tag == "classvar" && typeof stmt.name.expr.a == "object") {
+        if (stmt.name.tag == "clsvar" && typeof stmt.name.expr.a == "object") {
           var tmp = valStmts;
           valStmts = codeGenExpr(stmt.name.expr, locals);
           var member_name = stmt.name.name;
-          var index = classvars.get(stmt.name.expr.a.class).get(member_name)[0] * 4;
+          var index = clsEnv.clsVars.get(stmt.name.expr.a.class).get(member_name)[0] * 4;
           valStmts.push(`(i32.add (i32.const ${index}))`);
           valStmts = valStmts.concat(tmp);
           valStmts.push('i32.store');
@@ -289,9 +296,9 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, classname: string, al
 }
 
 
-export function class_vars(stmts: Stmt<Type>[]) {
+export function setClsEnv(stmts: Stmt<Type>[]) {
   stmts.forEach(s => {
-    if (s.tag == "class_def") {
+    if (s.tag == "clsdef") {
       let vars = new Map<string, [number, Expr<any>]>();
       let varnum = 0;
       s.varDefs.forEach(v => {
@@ -300,24 +307,36 @@ export function class_vars(stmts: Stmt<Type>[]) {
           varnum = varnum + 1;
         }
       });
-      classvars.set(s.name, vars);
-      classsize.set(s.name, varnum);
+      clsEnv.clsVars.set(s.name, vars);
+      clsEnv.clsLen.set(s.name, varnum);
     }
   });
+}
+
+function traverseVarDefs(stmts: Stmt<Type>[]): string[] {
+  const vars: string[] = [];
+  stmts.forEach((stmt) => {
+    if (stmt.tag === "vardef") { vars.push(stmt.name); }
+  });
+  return vars;
+}
+function traverseClassDefs(stmts: Stmt<Type>[]): Stmt<Type>[] {
+  return stmts.filter(stmt => stmt.tag === "clsdef");
+}
+function traverseStmts(stmts: Stmt<Type>[]): [string[], Stmt<Type>[], Stmt<Type>[]] {
+  return [traverseVarDefs(stmts), traverseClassDefs(stmts), traverseClassDefs(stmts)];
 }
 
 export function compile(source: string): string {
   let ast = parseProgram(source);
   ast = tcProgram(ast);
-  class_vars(ast);
+  setClsEnv(ast);
 
   const emptyEnv = new Map<string, boolean>();
-  const [vars, classdefs, nonclassdefs] = varsFunsStmts(ast);
+  const [vars, classdefs, nonclassdefs] = traverseStmts(ast);
   const funsCode: string[] = classdefs.map(f => codeGenStmt(f, emptyEnv, "none", "")).map(f => f.join("\n"));
   const allFuns = funsCode.join("\n\n");
   var varDecls = vars.map(v => `(global $${v} (mut i32) (i32.const 0))`).join("\n");
-
-
 
   const allStmts = nonclassdefs.map(s => codeGenStmt(s, emptyEnv, "none", allFuns)).flat();
   const main = [`(local $scratch i32)`, ...allStmts].join("\n");

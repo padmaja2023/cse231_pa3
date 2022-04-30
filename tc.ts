@@ -442,8 +442,6 @@ export function tcLiteral(literal: Literal): Type {
       return "int";
     case "bool":
       return "bool";
-    case "none":
-      return "none";
     default:
       throw new Error(`Unhandled literal ${literal}`);
   }
