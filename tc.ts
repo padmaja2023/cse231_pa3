@@ -125,7 +125,7 @@ export function tcExpr(e: Expr<any>, class_name: string, class_env: ClsEnv, loca
           args.push(a);
         });
         e.args = args;
-        var return_type = checkEquals(class_env.class_methods, e.name, cls_name, args);
+        var return_type = checkArgEquals(class_env.class_methods, e.name, cls_name, args);
         e.a = return_type;
         return e;
       }
@@ -283,7 +283,6 @@ export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
         return { ...s, value: valTyp };
       }
       case "clsdef": {
-
         let cv: ClsField[] = []
         s.varDefs.forEach(v => {
           if (v.tag == "vardef") {
@@ -301,7 +300,7 @@ export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
       }
     }
   } catch (e) {
-    throw new Error(`TYPE ERROR: e undefined`);
+    return s
   }
 }
 
@@ -336,7 +335,7 @@ export function checkTypes(variables: VarEnv, s: Stmt<any>): boolean {
   return true;
 }
 
-export function checkEquals(class_methods: Map<string, ClsMethod[]>, method_name: string,
+export function checkArgEquals(class_methods: Map<string, ClsMethod[]>, method_name: string,
   class_name: string, args: Expr<any>[]): Type {
   let result: Type = "none";
   class_methods.get(class_name).forEach(s => {
@@ -349,11 +348,11 @@ export function checkEquals(class_methods: Map<string, ClsMethod[]>, method_name
       for (i = 1; i < num_args; i++) {
         if (typeof args[i - 1].a == "object" && typeof s.arguments[i] == "object") {
           if (!(JSON.stringify(s.arguments[i]) === JSON.stringify(args[i - 1].a))) {
-            // throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
+            throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
           }
         }
         else if (args[i - 1].a !== s.arguments[i]) {
-          // throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
+          throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
         }
       }
       result = s.return_type;
