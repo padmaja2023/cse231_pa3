@@ -2,10 +2,12 @@ import { Expr, Stmt, Type, ClsField, ClsMethod, opType } from "./ast";
 
 type VarEnv = Map<string, Type>;
 var classes: string[] = [];
+type ClsEnv = {
+  class_methods: Map<string, ClsMethod[]>,
+  class_variables: Map<string, ClsField[]>
+}
 
-
-export function tcExpr(e: Expr<any>, class_name: string, class_methods: Map<string, ClsMethod[]>,
-  class_variables: Map<string, ClsField[]>, locals: VarEnv, globals: VarEnv): Expr<Type> {
+export function tcExpr(e: Expr<any>, class_name: string, class_env: ClsEnv, locals: VarEnv, globals: VarEnv): Expr<Type> {
 
   switch (e.tag) {
     case "number": return { ...e, a: "int" };
@@ -19,12 +21,15 @@ export function tcExpr(e: Expr<any>, class_name: string, class_methods: Map<stri
     }
     case "binop": {
       var operator = e.op;
-      var left = tcExpr(e.lhs, class_name, class_methods, class_variables, locals, globals);
-      var right = tcExpr(e.rhs, class_name, class_methods, class_variables, locals, globals);
+      var left = tcExpr(e.lhs, class_name, class_env, locals, globals);
+      var right = tcExpr(e.rhs, class_name, class_env, locals, globals);
       e.lhs = left;
       e.rhs = right;
       if (opType.get(operator)[0] != left.a || opType.get(operator)[0] != right.a) {
         if (operator != "is") {
+          throw new Error("TYPE ERROR: Incompatible operator types.");
+        }
+        if(operator === "is" && (left.a === "int" || right.a === "int") ) {
           throw new Error("TYPE ERROR: Incompatible operator types.");
         }
       }
@@ -32,23 +37,23 @@ export function tcExpr(e: Expr<any>, class_name: string, class_methods: Map<stri
     }
     case "uniop": {
       var operator = e.op;
-      var operand = tcExpr(e.expr, class_name, class_methods, class_variables, locals, globals);
+      var operand = tcExpr(e.expr, class_name, class_env, locals, globals);
       if (opType.get(operator)[0] != operand.a) {
         throw new Error("TYPE ERROR: Incompatible operator types.");
       }
       return { ...e, a: opType.get(operator)[1] };
     }
     case "clsvar": {
-      e.expr = tcExpr(e.expr, class_name, class_methods, class_variables, locals, globals);
+      e.expr = tcExpr(e.expr, class_name, class_env, locals, globals);
       if (e.expr.a.tag !== "object") {
         throw new Error("TYPE ERROR: Incorrect object for this class");
       }
       let curr_class = e.expr.a.class;
-      if (!class_variables.has(curr_class)) {
+      if (!class_env.class_variables.has(curr_class)) {
         throw new Error("TYPE ERROR: Incorrect object for this class");
       }
       var isPresent = false;
-      class_variables.get(curr_class).forEach(c => {
+      class_env.class_variables.get(curr_class).forEach(c => {
         if (c.name == e.name)
           isPresent = true;
       });
@@ -56,13 +61,13 @@ export function tcExpr(e: Expr<any>, class_name: string, class_methods: Map<stri
         throw new Error("TYPE ERROR: Field not present in class");
       }
       var type: Type = "int";
-      class_variables.get(e.expr.a.class).forEach(v => {
+      class_env.class_variables.get(e.expr.a.class).forEach(v => {
         if (v.name == e.name) {
           type = v.type;
         }
       });
       e.a = "int";
-      class_variables.get(e.expr.a.class).forEach(v => {
+      class_env.class_variables.get(e.expr.a.class).forEach(v => {
         if (v.name == e.name) {
           e.a = v.type;
         }
@@ -90,7 +95,7 @@ export function tcExpr(e: Expr<any>, class_name: string, class_methods: Map<stri
 
     }
     case "constructor": {
-      if (!class_variables.has(e.name)) {
+      if (!class_env.class_variables.has(e.name)) {
         throw new Error("class not present");
       }
       e.a = { tag: "object", class: e.name }
@@ -102,30 +107,30 @@ export function tcExpr(e: Expr<any>, class_name: string, class_methods: Map<stri
       }
       var args: Expr<any>[] = []
       e.args.forEach(a => {
-        args.push(tcExpr(a, class_name, class_methods, class_variables, locals, globals));
+        args.push(tcExpr(a, class_name, class_env, locals, globals));
       });
       e.args = args;
       return e;
     }
     case "clsmethod": {
-      e.expr = tcExpr(e.expr, class_name, class_methods, class_variables, locals, globals)
-      if (e.expr.tag == "id" && !class_methods.has(e.expr.a.class)) {
+      e.expr = tcExpr(e.expr, class_name, class_env, locals, globals)
+      if (e.expr.tag == "id" && !class_env.class_methods.has(e.expr.a.class)) {
         throw new Error("TYPE ERROR: Incorrect method for this class");
       }
       if (e.expr.tag == "id" || e.expr.tag == "constructor") {
         let cls_name = e.expr.a.class;
         var args: Expr<any>[] = []
         e.args.forEach(a => {
-          a = tcExpr(a, class_name, class_methods, class_variables, locals, globals);
+          a = tcExpr(a, class_name, class_env, locals, globals);
           args.push(a);
         });
         e.args = args;
-        var return_type = checkEquals(class_methods, e.name, cls_name, args);
+        var return_type = checkEquals(class_env.class_methods, e.name, cls_name, args);
         e.a = return_type;
         return e;
       }
       var ret: Type = "int";
-      class_methods.get(e.expr.a.class).forEach(m => {
+      class_env.class_methods.get(e.expr.a.class).forEach(m => {
         if (m.name == e.name) {
           ret = m.return_type;
         }
@@ -139,34 +144,33 @@ export function tcExpr(e: Expr<any>, class_name: string, class_methods: Map<stri
 
 var isreturn: boolean = false;
 
-export function tcStmt(s: Stmt<any>, classname: string, class_vars: Map<string, ClsField[]>,
-  class_methods: Map<string, ClsMethod[]>,
+export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
   locals: Map<string, Type>, globals: Map<string, Type>, currentReturn: Type): Stmt<Type> {
   switch (s.tag) {
     case "if": {
-      if (tcExpr(s.if_condition, classname, class_methods, class_vars, locals, globals).a != "bool") {
+      if (tcExpr(s.if_condition, classname, class_env, locals, globals).a != "bool") {
         throw new Error("TYPE ERROR: if condition must be boolean");
       }
-      if (s.elif_condition != undefined && tcExpr(s.elif_condition, classname, class_methods, class_vars, locals, globals).a != "bool") {
+      if (s.elif_condition != undefined && tcExpr(s.elif_condition, classname, class_env, locals, globals).a != "bool") {
         throw new Error("TYPE ERROR: elif condition must be boolean");
       }
       var if_body: Stmt<any>[] = [];
       s.if_body.forEach(i => {
-        if_body.push(tcStmt(i, classname, class_vars, class_methods, locals, globals,
+        if_body.push(tcStmt(i, classname, class_env, locals, globals,
           currentReturn));
       });
       s.if_body = if_body;
 
       var elif_body: Stmt<any>[] = [];
       s.elif_body.forEach(i => {
-        elif_body.push(tcStmt(i, classname, class_vars, class_methods, locals, globals,
+        elif_body.push(tcStmt(i, classname, class_env, locals, globals,
           currentReturn));
       });
       s.elif_body = elif_body;
 
       var else_body: Stmt<any>[] = [];
       s.else_body.forEach(i => {
-        elif_body.push(tcStmt(i, classname, class_vars, class_methods, locals, globals,
+        elif_body.push(tcStmt(i, classname, class_env, locals, globals,
           currentReturn));
       });
       s.else_body = else_body;
@@ -174,7 +178,7 @@ export function tcStmt(s: Stmt<any>, classname: string, class_vars: Map<string, 
       return { ...s };
     }
     case "assign": {
-      s.value = tcExpr(s.value, classname, class_methods, class_vars, locals, globals);
+      s.value = tcExpr(s.value, classname, class_env, locals, globals);
       s.a = s.value.a;
       if (typeof s.name === "string") {
 
@@ -183,7 +187,7 @@ export function tcStmt(s: Stmt<any>, classname: string, class_vars: Map<string, 
         }
       }
       else if (s.name.tag == "clsvar") {
-        s.name.expr = tcExpr(s.name.expr, classname, class_methods, class_vars, locals, globals);
+        s.name.expr = tcExpr(s.name.expr, classname, class_env, locals, globals);
         s.name.a = s.name.expr.a;
       }
       if (typeof s.a == "object" && typeof s.name == "string") {
@@ -195,7 +199,7 @@ export function tcStmt(s: Stmt<any>, classname: string, class_vars: Map<string, 
       if (locals.has(s.name)) {
         throw new Error("TYPE ERROR: " + s.name + " already defined");
       }
-      s.value = tcExpr(s.value, classname, class_methods, class_vars, locals, globals);
+      s.value = tcExpr(s.value, classname, class_env, locals, globals);
       if (s.a !== s.value.a && typeof s.a !== "object" && typeof s.value.a !== "object") {
         throw new Error("TYPE ERROR: Incorrect data types");
       }
@@ -212,7 +216,7 @@ export function tcStmt(s: Stmt<any>, classname: string, class_vars: Map<string, 
       }
 
       isreturn = false;
-      const newStmts = s.body.map(bs => tcStmt(bs, classname, class_vars, class_methods, locals, globals, s.ret));
+      const newStmts = s.body.map(bs => tcStmt(bs, classname, class_env, locals, globals, s.ret));
       if (s.name !== "__init__" && s.ret !== "none" && !isreturn) {
         if (typeof s.ret == "object" && s.ret.class !== "none") {
           throw new Error("TYPE ERROR: Incorrect return value, expected" + s.ret.class);
@@ -239,12 +243,12 @@ export function tcStmt(s: Stmt<any>, classname: string, class_vars: Map<string, 
 
     }
     case "expr": {
-      const ret = tcExpr(s.expr, classname, class_methods, class_vars, locals, globals);
+      const ret = tcExpr(s.expr, classname, class_env, locals, globals);
       s.a = ret.a;
       return { ...s, expr: ret };
     }
     case "return": {
-      const valTyp = tcExpr(s.value, classname, class_methods, class_vars, locals, globals);
+      const valTyp = tcExpr(s.value, classname, class_env, locals, globals);
       if (valTyp.a !== currentReturn) {
         if (typeof valTyp.a !== "string" && typeof currentReturn !== "string") {
           if (valTyp.a.class !== currentReturn.class) {
@@ -268,14 +272,14 @@ export function tcStmt(s: Stmt<any>, classname: string, class_vars: Map<string, 
       let cv: ClsField[] = []
       s.varDefs.forEach(v => {
         if (v.tag == "vardef") {
-          v.value = tcExpr(v.value, classname, class_methods, class_vars, locals, globals);
+          v.value = tcExpr(v.value, classname, class_env, locals, globals);
           cv.push({ name: v.name, type: v.a })
         }
       });
-      class_vars.set(s.name, cv);
+      class_env.class_variables.set(s.name, cv);
       s.methodDefs.forEach(m => {
         if (m.tag == "define") {
-          m = tcStmt(m, s.name, class_vars, class_methods, locals, globals, currentReturn);
+          m = tcStmt(m, s.name, class_env, locals, globals, currentReturn);
         }
       });
       return s;
@@ -381,7 +385,11 @@ export function tcProgram(p: Stmt<any>[]): Stmt<Type>[] {
   const globals = new Map<string, Type>();
   return p.map(s => {
     if (s.tag === "vardef") {
-      const rhs = tcExpr(s.value, "none", class_meth, class_vars, new Map<string, Type>(), globals);
+      const class_env : ClsEnv = {
+        class_methods: class_meth,
+        class_variables: class_vars
+      }
+      const rhs = tcExpr(s.value, "none", class_env, new Map<string, Type>(), globals);
 
       if (s.a !== rhs.a && typeof s.a !== "object" && typeof rhs.a !== "object") {
         throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
@@ -394,7 +402,11 @@ export function tcProgram(p: Stmt<any>[]): Stmt<Type>[] {
       return { ...s, value: rhs };
     }
     else {
-      const res = tcStmt(s, "none", class_vars, class_meth, new Map<string, Type>(),
+      const class_env : ClsEnv = {
+        class_methods: class_meth,
+        class_variables: class_vars
+      }
+      const res = tcStmt(s, "none", class_env, new Map<string, Type>(),
         globals, "none");
       return res;
     }
