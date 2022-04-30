@@ -162,7 +162,7 @@ export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
         });
         s.if_body = if_body;
         const lastIf = if_body[if_body.length - 1]
-        if(lastIf.tag === "return" && lastIf.a !== currentReturn) {
+        if(lastIf != undefined &&  lastIf.tag === "return" && lastIf.a !== currentReturn) {
           throw new Error("TYPE ERROR: Incorrect/ null return from branch")
         }
 
@@ -172,9 +172,11 @@ export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
             currentReturn));
         });
         s.elif_body = elif_body;
-        const lastElIf = elif_body[elif_body.length - 1]
-        if(lastElIf.tag === "return" && lastElIf.a !== currentReturn) {
-          throw new Error("TYPE ERROR: Incorrect/ null return from branch")
+        if (elif_body.length > 0) {
+          const lastElIf = elif_body[elif_body.length - 1]
+          if(lastElIf.tag === "return" && lastElIf.a !== currentReturn) {
+            throw new Error("TYPE ERROR: Incorrect/ null return from branch")
+          }
         }
 
         var else_body: Stmt<any>[] = [];
