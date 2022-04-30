@@ -227,10 +227,10 @@ export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
       }
       if (s.name == "__init__") {
         if (s.ret == "none" || s.ret == "int" || s.ret == "bool") {
-          throw new Error("TYPE ERROR: Incorrect return value");
+          throw new Error("TYPE ERROR: Incorrect return value1");
         }
         if (typeof s.ret === "object" && s.ret.class !== classname) {
-          throw new Error("TYPE ERROR: Incorrect return value");
+          throw new Error("TYPE ERROR: Incorrect return value2");
         }
       }
       if (s.ret === "object") {
@@ -326,16 +326,16 @@ export function checkEquals(class_methods: Map<string, ClsMethod[]>, method_name
       var num_args = s.arguments.length;
       var i: number;
       if (num_args - 1 !== args.length) {
-        // throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
+        throw new Error("TYPE ERROR: Incorrect type assignment9");
       }
       for (i = 1; i < num_args; i++) {
-        if (typeof args[i - 1].a == "object" && typeof s.arguments[i] == "object") {
+        if (args[i - 1].a == "object" && s.arguments[i] == "object") {
           if (!(JSON.stringify(s.arguments[i]) === JSON.stringify(args[i - 1].a))) {
-            // throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
+            throw new Error("TYPE ERROR: Incorrect type assignment8");
           }
         }
         else if (args[i - 1].a !== s.arguments[i]) {
-          // throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
+          throw new Error("TYPE ERROR: Incorrect type assignment7");
         }
       }
       result = s.return_type;
