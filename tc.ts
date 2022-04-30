@@ -300,7 +300,7 @@ export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
       }
     }
   } catch (e) {
-    return s
+    throw new Error(`TYPE ERROR: e undefined`);
   }
 }
 
@@ -348,11 +348,11 @@ export function checkArgEquals(class_methods: Map<string, ClsMethod[]>, method_n
       for (i = 1; i < num_args; i++) {
         if (typeof args[i - 1].a == "object" && typeof s.arguments[i] == "object") {
           if (!(JSON.stringify(s.arguments[i]) === JSON.stringify(args[i - 1].a))) {
-            throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
+            // throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
           }
         }
         else if (args[i - 1].a !== s.arguments[i]) {
-          throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
+          // throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
         }
       }
       result = s.return_type;
