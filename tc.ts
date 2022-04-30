@@ -301,7 +301,7 @@ export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
       }
     }
   } catch (e) {
-    return {...s, a: "none"}
+    throw new Error(`TYPE ERROR: e undefined`);
   }
 }
 
