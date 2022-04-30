@@ -96,7 +96,7 @@ export function tcExpr(e: Expr<any>, class_name: string, class_env: ClsEnv, loca
     }
     case "constructor": {
       if (!class_env.class_variables.has(e.name)) {
-        throw new Error("class not present");
+        throw new Error("TYPE ERROR: Class undefined");
       }
       e.a = { tag: "object", class: e.name }
       return e;
@@ -138,6 +138,10 @@ export function tcExpr(e: Expr<any>, class_name: string, class_env: ClsEnv, loca
       e.a = ret;
       return e;
 
+    }
+    case "clsvar":
+    case "object": {
+      return e
     }
   }
 }
@@ -303,7 +307,7 @@ export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
       }
     }
   } catch (e) {
-    throw new Error(`TYPE ERROR: e undefined`);
+    throw new Error(`TYPE ERROR: s undefined ` + e);
   }
 }
 
