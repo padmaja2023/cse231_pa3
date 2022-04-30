@@ -298,9 +298,12 @@ export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
         });
         return s;
       }
+      case "pass": {
+        return s;
+      }
     }
   } catch (e) {
-    throw new Error(`TYPE ERROR: e undefined`);
+    
   }
 }
 
