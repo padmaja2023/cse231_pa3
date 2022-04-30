@@ -186,7 +186,7 @@ export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
         });
         s.else_body = else_body;
         const lastElse = else_body[else_body.length - 1]
-        if(lastElse.tag === "return" && lastElse.a !== currentReturn) {
+        if(lastElse != undefined && lastElse.tag === "return" && lastElse.a !== currentReturn) {
           throw new Error("TYPE ERROR: Incorrect/ null return from branch")
         }
 
