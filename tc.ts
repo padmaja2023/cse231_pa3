@@ -146,7 +146,7 @@ var isreturn: boolean = false;
 
 export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
   locals: Map<string, Type>, globals: Map<string, Type>, currentReturn: Type): Stmt<Type> {
-  try {
+  // try {
     switch (s.tag) {
       case "if": {
         if (tcExpr(s.if_condition, classname, class_env, locals, globals).a != "bool") {
@@ -298,9 +298,9 @@ export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
         return s;
       }
     }
-  } catch (e) {
-    throw new Error(`TYPE ERROR: e undefined`);
-  }
+  // } catch (e) {
+    // throw new Error(`TYPE ERROR: e undefined`);
+  // }
 }
 
 export function checkTypes(variables: VarEnv, s: Stmt<any>): boolean {
