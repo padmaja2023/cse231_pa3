@@ -233,13 +233,9 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, classname: string, al
     }
     case "define":
       const withParamsAndVariables = new Map<string, boolean>(locals.entries());
-
-      // Construct the environment for the function body
       const variables = variableNames(stmt.body);
       variables.forEach(v => withParamsAndVariables.set(v, true));
       stmt.params.forEach(p => withParamsAndVariables.set(p.name, true));
-
-      // Construct the code for params and variable declarations in the body
       const params = stmt.params.map(p => `(param $${p.name} i32)`).join(" ");
       const varDecls = variables.map(v => `(local $${v} i32)`).join("\n");
 
@@ -311,7 +307,7 @@ export function codeGenStmt(stmt: Stmt<Type>, locals: Env, classname: string, al
 }
 
 
-export function class_vars(stmts: Stmt<Type>[]) {
+export function setClassVars(stmts: Stmt<Type>[]) {
   stmts.forEach(s => {
     if (s.tag == "clsdef") {
       let vars = new Map<string, [number, Expr<any>]>();
@@ -331,7 +327,7 @@ export function class_vars(stmts: Stmt<Type>[]) {
 export function compile(source: string): string {
   let ast = parseProgram(source);
   ast = tcProgram(ast);
-  class_vars(ast);
+  setClassVars(ast);
 
   const emptyEnv = new Map<string, boolean>();
   const [vars, classdefs, nonclassdefs] = varsFunsStmts(ast);

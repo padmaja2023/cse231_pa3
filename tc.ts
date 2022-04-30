@@ -13,7 +13,7 @@ export function tcExpr(e: Expr<any>, class_name: string, class_methods: Map<stri
     case "false": return { ...e, a: "bool" };
     case "name": {
       if (!locals.has(e.name)) {
-        throw new Error(e.name + " has not been defined.");
+        throw new Error(e.name + " is not defined");
       }
       return { ...e, a: locals.get(e.name) };
     }
@@ -25,8 +25,7 @@ export function tcExpr(e: Expr<any>, class_name: string, class_methods: Map<stri
       e.rhs = right;
       if (opType.get(operator)[0] != left.a || opType.get(operator)[0] != right.a) {
         if (operator != "is") {
-          throw new Error("TYPE ERROR: Incompatible types. Operator " + operator + " expects both operands to be of type " + opType.get(operator)[0] + ". The " +
-            "left and right operands are of type " + left + " and " + right + " respectively");
+          throw new Error("TYPE ERROR: Incompatible operator types.");
         }
       }
       return { ...e, a: opType.get(operator)[1] };
@@ -35,18 +34,18 @@ export function tcExpr(e: Expr<any>, class_name: string, class_methods: Map<stri
       var operator = e.op;
       var operand = tcExpr(e.expr, class_name, class_methods, class_variables, locals, globals);
       if (opType.get(operator)[0] != operand.a) {
-        throw new Error("TYPE ERROR: Incompatible typeOperator " + operator + " expects operand to be of type " + opType.get(operator)[0] + ". The operand is of type " + operand);
+        throw new Error("TYPE ERROR: Incompatible operator types.");
       }
       return { ...e, a: opType.get(operator)[1] };
     }
     case "clsvar": {
       e.expr = tcExpr(e.expr, class_name, class_methods, class_variables, locals, globals);
       if (e.expr.a.tag !== "object") {
-        throw new Error("TYPE ERROR: invalid object");
+        throw new Error("TYPE ERROR: Incorrect object for this class");
       }
       let curr_class = e.expr.a.class;
       if (!class_variables.has(curr_class)) {
-        throw new Error("TYPE ERROR: invalid class");
+        throw new Error("TYPE ERROR: Incorrect object for this class");
       }
       var isPresent = false;
       class_variables.get(curr_class).forEach(c => {
@@ -54,7 +53,7 @@ export function tcExpr(e: Expr<any>, class_name: string, class_methods: Map<stri
           isPresent = true;
       });
       if (!isPresent) {
-        throw new Error("TYPE ERROR: variable not present in class");
+        throw new Error("TYPE ERROR: Field not present in class");
       }
       var type: Type = "int";
       class_variables.get(e.expr.a.class).forEach(v => {
@@ -62,7 +61,7 @@ export function tcExpr(e: Expr<any>, class_name: string, class_methods: Map<stri
           type = v.type;
         }
       });
-      e.a = "int";//class_variables.get(e.name);
+      e.a = "int";
       class_variables.get(e.expr.a.class).forEach(v => {
         if (v.name == e.name) {
           e.a = v.type;
@@ -111,7 +110,7 @@ export function tcExpr(e: Expr<any>, class_name: string, class_methods: Map<stri
     case "clsmethod": {
       e.expr = tcExpr(e.expr, class_name, class_methods, class_variables, locals, globals)
       if (e.expr.tag == "id" && !class_methods.has(e.expr.a.class)) {
-        throw new Error("TYPE ERROR: invalid class ref");
+        throw new Error("TYPE ERROR: Incorrect method for this class");
       }
       if (e.expr.tag == "id" || e.expr.tag == "constructor") {
         let cls_name = e.expr.a.class;
@@ -121,7 +120,7 @@ export function tcExpr(e: Expr<any>, class_name: string, class_methods: Map<stri
           args.push(a);
         });
         e.args = args;
-        var return_type = checkMethods(class_methods, e.name, cls_name, args);
+        var return_type = checkEquals(class_methods, e.name, cls_name, args);
         e.a = return_type;
         return e;
       }
@@ -138,19 +137,6 @@ export function tcExpr(e: Expr<any>, class_name: string, class_methods: Map<stri
   }
 }
 
-export function checkIfClassMember(class_vars: Map<string, ClsField[]>,
-  class_name: string, name: string, typ: Type): boolean {
-  var result = false;
-  class_vars.get(class_name).forEach(s => {
-    if (s.name === name) {
-      if (typeof s.type != "string" && typeof typ != "string") {
-        if (s.type.class == typ.class) { result = true; }
-      }
-      if (s.type == typ) { result = true; }
-    }
-  });
-  return result;
-}
 var isreturn: boolean = false;
 
 export function tcStmt(s: Stmt<any>, classname: string, class_vars: Map<string, ClsField[]>,
@@ -207,11 +193,11 @@ export function tcStmt(s: Stmt<any>, classname: string, class_vars: Map<string, 
     }
     case "vardef": {
       if (locals.has(s.name)) {
-        throw new Error("TYPE ERROR: " + s.name + " has already been defined in this scoope");
+        throw new Error("TYPE ERROR: " + s.name + " already defined");
       }
       s.value = tcExpr(s.value, classname, class_methods, class_vars, locals, globals);
       if (s.a !== s.value.a && typeof s.a !== "object" && typeof s.value.a !== "object") {
-        throw new Error("TYPE ERROR: wrong data types");
+        throw new Error("TYPE ERROR: Incorrect data types");
       }
       s.a = s.value.a;
       locals.set(s.name, s.a);
@@ -344,7 +330,7 @@ export function checkTypes(variables: VarEnv, s: Stmt<any>): boolean {
   return true;
 }
 
-export function checkMethods(class_methods: Map<string, ClsMethod[]>, method_name: string,
+export function checkEquals(class_methods: Map<string, ClsMethod[]>, method_name: string,
   class_name: string, args: Expr<any>[]): Type {
   let result: Type = "none";
   class_methods.get(class_name).forEach(s => {
