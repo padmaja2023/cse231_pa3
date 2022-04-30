@@ -150,7 +150,7 @@ var isreturn: boolean = false;
 
 export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
   locals: Map<string, Type>, globals: Map<string, Type>, currentReturn: Type): Stmt<Type> {
-  try {
+  // try {
     switch (s.tag) {
       case "if": {
         if (tcExpr(s.if_condition, classname, class_env, locals, globals).a != "bool") {
@@ -167,7 +167,7 @@ export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
         s.if_body = if_body;
         const lastIf = if_body[if_body.length - 1]
         if(lastIf != undefined &&  lastIf.tag === "return" && lastIf.a !== currentReturn) {
-          throw new Error("TYPE ERROR: Incorrect/ null return from branch")
+          throw new Error("TYPE ERROR: Incorrect/ null return from branch1")
         }
 
         var elif_body: Stmt<any>[] = [];
@@ -179,7 +179,7 @@ export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
         if (elif_body.length > 0) {
           const lastElIf = elif_body[elif_body.length - 1]
           if(lastElIf.tag === "return" && lastElIf.a !== currentReturn) {
-            throw new Error("TYPE ERROR: Incorrect/ null return from branch")
+            throw new Error("TYPE ERROR: Incorrect/ null return from branch2")
           }
         }
 
@@ -191,7 +191,7 @@ export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
         s.else_body = else_body;
         const lastElse = else_body[else_body.length - 1]
         if(lastElse != undefined && lastElse.tag === "return" && lastElse.a !== currentReturn) {
-          throw new Error("TYPE ERROR: Incorrect/ null return from branch")
+          throw new Error("TYPE ERROR: Incorrect/ null return from branch3")
         }
 
         return { ...s };
@@ -306,9 +306,9 @@ export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
         return {...s, a: "none"};
       }
     }
-  } catch (e) {
-    throw new Error(`TYPE ERROR: s undefined ` + e);
-  }
+  // } catch (e) {
+    // throw new Error(`TYPE ERROR: s undefined ` + e);
+  // }
 }
 
 export function checkTypes(variables: VarEnv, s: Stmt<any>): boolean {
