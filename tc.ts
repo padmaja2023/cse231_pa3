@@ -193,7 +193,7 @@ export function tcStmt(s: Stmt<any>, classname: string, class_vars: Map<string, 
       if (typeof s.name === "string") {
 
         if (!(checkTypes(locals, s) || checkTypes(globals, s))) {
-          throw new Error("TYPE ERROR: Incorrect type assignment");
+          throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
         }
       }
       else if (s.name.tag == "clsvar") {
@@ -352,16 +352,16 @@ export function checkMethods(class_methods: Map<string, ClsMethod[]>, method_nam
       var num_args = s.arguments.length;
       var i: number;
       if (num_args - 1 !== args.length) {
-        throw new Error("TYPE ERROR: Incorrect type assignment");
+        throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
       }
       for (i = 1; i < num_args; i++) {
         if (typeof args[i - 1].a == "object" && typeof s.arguments[i] == "object") {
           if (!(JSON.stringify(s.arguments[i]) === JSON.stringify(args[i - 1].a))) {
-            throw new Error("TYPE ERROR: Incorrect type assignment");
+            throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
           }
         }
         else if (args[i - 1].a !== s.arguments[i]) {
-          throw new Error("TYPE ERROR: Incorrect type assignment");
+          throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
         }
       }
       result = s.return_type;
@@ -414,10 +414,10 @@ export function tcProgram(p: Stmt<any>[]): Stmt<Type>[] {
       const rhs = tcExpr(s.value, "none", class_meth, class_vars, new Map<string, Type>(), globals);
 
       if (s.a !== rhs.a && typeof s.a !== "object" && typeof rhs.a !== "object") {
-        throw new Error("TYPE ERROR: Incorrect type assignment");
+        throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
       }
       if (typeof s.a == "object" && rhs.a !== "none") {
-        throw new Error("TYPE ERROR: Incorrect type assignment");
+        throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
       }
 
       globals.set(s.name, s.a);
