@@ -28,6 +28,7 @@ export const importObject = {
     print_num: (arg: number) => print(Type.Num, arg),
     print_bool: (arg: number) => print(Type.Bool, arg),
     print_none: (arg: number) => print(Type.None, arg),
+    // not_operator: (arg : boolean) => {return !arg},
     abs: Math.abs,
     min: Math.min,
     max: Math.max,

@@ -1,23 +1,47 @@
-import { importObject } from "./import-object.test";
+import wabt from 'wabt';
+import {importObject} from './import-object.test';
+import {compile, run_compiler} from '../compiler';
+import {parseProgram} from '../parser';
+import { tcProgram } from '../tc';
+import { Expr, Stmt, Type } from "../ast";
+import { none } from 'binaryen';
 
-// Modify typeCheck to return a `Type` as we have specified below
+
+
+
+
 export function typeCheck(source: string) : Type {
-  return "none";
+  let ast = parseProgram(source);
+  console.log("parsed program :: ",ast)
+  ast = tcProgram(ast);
+  var length = ast.length;
+  try
+  {
+    return ast[length-1].a;
+  }
+  catch(Error){
+    return "none";
+  }
 }
 
-// Modify run to use `importObject` (imported above) to use for printing
-// You can modify `importObject` to have any new fields you need here, or
-// within another function in your compiler, for example if you need other
-// JavaScript-side helpers
+
+
+
 export async function run(source: string) {
-  return;
+  // source is python code
+  const wat = compile(source);
+  var memory = new WebAssembly.Memory({initial:20000, maximum:20000});
+  importObject.imports = Object.assign({ not_operator: (arg : boolean) => {return !arg}}, importObject.imports);
+  (importObject.imports as any).mem = memory
+  const result = await run_compiler(wat,importObject);
+  return result;
 }
 
-type Type =
-  | "int"
-  | "bool"
-  | "none"
-  | { tag: "object", class: string }
+// type Type =
+//   | "int"
+//   | "bool"
+//   | "none"
+//   | { tag: "object", class: string }
 
 export const NUM : Type = "int";
 export const BOOL : Type = "bool";
