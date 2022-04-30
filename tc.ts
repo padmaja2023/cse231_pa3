@@ -29,7 +29,7 @@ export function tcExpr(e: Expr<any>, class_name: string, class_env: ClsEnv, loca
         if (operator != "is") {
           throw new Error("TYPE ERROR: Incompatible operator types.");
         }
-        if(operator === "is" && (left.a === "int" || right.a === "int") ) {
+        if (operator === "is" && (left.a === "int" || right.a === "int")) {
           throw new Error("TYPE ERROR: Incompatible operator types.");
         }
       }
@@ -146,144 +146,148 @@ var isreturn: boolean = false;
 
 export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
   locals: Map<string, Type>, globals: Map<string, Type>, currentReturn: Type): Stmt<Type> {
-  switch (s.tag) {
-    case "if": {
-      if (tcExpr(s.if_condition, classname, class_env, locals, globals).a != "bool") {
-        throw new Error("TYPE ERROR: if condition must be boolean");
-      }
-      if (s.elif_condition != undefined && tcExpr(s.elif_condition, classname, class_env, locals, globals).a != "bool") {
-        throw new Error("TYPE ERROR: elif condition must be boolean");
-      }
-      var if_body: Stmt<any>[] = [];
-      s.if_body.forEach(i => {
-        if_body.push(tcStmt(i, classname, class_env, locals, globals,
-          currentReturn));
-      });
-      s.if_body = if_body;
-
-      var elif_body: Stmt<any>[] = [];
-      s.elif_body.forEach(i => {
-        elif_body.push(tcStmt(i, classname, class_env, locals, globals,
-          currentReturn));
-      });
-      s.elif_body = elif_body;
-
-      var else_body: Stmt<any>[] = [];
-      s.else_body.forEach(i => {
-        elif_body.push(tcStmt(i, classname, class_env, locals, globals,
-          currentReturn));
-      });
-      s.else_body = else_body;
-
-      return { ...s };
-    }
-    case "assign": {
-      s.value = tcExpr(s.value, classname, class_env, locals, globals);
-      s.a = s.value.a;
-      if (typeof s.name === "string") {
-
-        if (!(checkTypes(locals, s) || checkTypes(globals, s))) {
-          throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
+  try {
+    switch (s.tag) {
+      case "if": {
+        if (tcExpr(s.if_condition, classname, class_env, locals, globals).a != "bool") {
+          throw new Error("TYPE ERROR: if condition must be boolean");
         }
-      }
-      else if (s.name.tag == "clsvar") {
-        s.name.expr = tcExpr(s.name.expr, classname, class_env, locals, globals);
-        s.name.a = s.name.expr.a;
-      }
-      if (typeof s.a == "object" && typeof s.name == "string") {
-        classes.push(s.name);
-      }
-      return s;
-    }
-    case "vardef": {
-      if (locals.has(s.name)) {
-        throw new Error("TYPE ERROR: " + s.name + " already defined");
-      }
-      s.value = tcExpr(s.value, classname, class_env, locals, globals);
-      if (s.a !== s.value.a && typeof s.a !== "object" && typeof s.value.a !== "object") {
-        throw new Error("TYPE ERROR: Incorrect data types");
-      }
-      s.a = s.value.a;
-      locals.set(s.name, s.a);
-      return s;
-    }
-    case "define": {
-      s.params.forEach(v => {
-        locals.set(v.name, v.typ);
-      });
-      if (!locals.has("self")) {
-        throw new Error("TYPE ERROR: self parameter is not present in method: " + s.name);
-      }
+        if (s.elif_condition != undefined && tcExpr(s.elif_condition, classname, class_env, locals, globals).a != "bool") {
+          throw new Error("TYPE ERROR: elif condition must be boolean");
+        }
+        var if_body: Stmt<any>[] = [];
+        s.if_body.forEach(i => {
+          if_body.push(tcStmt(i, classname, class_env, locals, globals,
+            currentReturn));
+        });
+        s.if_body = if_body;
 
-      isreturn = false;
-      const newStmts = s.body.map(bs => tcStmt(bs, classname, class_env, locals, globals, s.ret));
-      if (s.name !== "__init__" && s.ret !== "none" && !isreturn) {
-        if (typeof s.ret == "object" && s.ret.class !== "none") {
-          throw new Error("TYPE ERROR: Incorrect return value, expected" + s.ret.class);
-        }
-        else if (typeof s.ret !== "object") {
-          throw new Error("TYPE ERROR: Incorrect return value, expected" + s.ret);
-        }
-      }
-      if (s.name == "__init__") {
-        if (s.ret == "none" || s.ret == "int" || s.ret == "bool") {
-          throw new Error("TYPE ERROR: Incorrect return value");
-        }
-        if (typeof s.ret === "object" && s.ret.class !== classname) {
-          throw new Error("TYPE ERROR: Incorrect return value");
-        }
-      }
-      if (s.ret === "object") {
-        s.ret = { tag: "object", class: classname };
-      }
+        var elif_body: Stmt<any>[] = [];
+        s.elif_body.forEach(i => {
+          elif_body.push(tcStmt(i, classname, class_env, locals, globals,
+            currentReturn));
+        });
+        s.elif_body = elif_body;
 
-      isreturn = false;
-      locals.clear();
-      return { ...s, body: newStmts };
+        var else_body: Stmt<any>[] = [];
+        s.else_body.forEach(i => {
+          elif_body.push(tcStmt(i, classname, class_env, locals, globals,
+            currentReturn));
+        });
+        s.else_body = else_body;
 
-    }
-    case "expr": {
-      const ret = tcExpr(s.expr, classname, class_env, locals, globals);
-      s.a = ret.a;
-      return { ...s, expr: ret };
-    }
-    case "return": {
-      const valTyp = tcExpr(s.value, classname, class_env, locals, globals);
-      if (valTyp.a !== currentReturn) {
-        if (typeof valTyp.a !== "string" && typeof currentReturn !== "string") {
-          if (valTyp.a.class !== currentReturn.class) {
+        return { ...s };
+      }
+      case "assign": {
+        s.value = tcExpr(s.value, classname, class_env, locals, globals);
+        s.a = s.value.a;
+        if (typeof s.name === "string") {
+
+          if (!(checkTypes(locals, s) || checkTypes(globals, s))) {
+            throw new Error("TYPE ERROR: RUNTIME ERROR: Incorrect type assignment");
+          }
+        }
+        else if (s.name.tag == "clsvar") {
+          s.name.expr = tcExpr(s.name.expr, classname, class_env, locals, globals);
+          s.name.a = s.name.expr.a;
+        }
+        if (typeof s.a == "object" && typeof s.name == "string") {
+          classes.push(s.name);
+        }
+        return s;
+      }
+      case "vardef": {
+        if (locals.has(s.name)) {
+          throw new Error("TYPE ERROR: " + s.name + " already defined");
+        }
+        s.value = tcExpr(s.value, classname, class_env, locals, globals);
+        if (s.a !== s.value.a && typeof s.a !== "object" && typeof s.value.a !== "object") {
+          throw new Error("TYPE ERROR: Incorrect data types");
+        }
+        s.a = s.value.a;
+        locals.set(s.name, s.a);
+        return s;
+      }
+      case "define": {
+        s.params.forEach(v => {
+          locals.set(v.name, v.typ);
+        });
+        if (!locals.has("self")) {
+          throw new Error("TYPE ERROR: self parameter is not present in method: " + s.name);
+        }
+
+        isreturn = false;
+        const newStmts = s.body.map(bs => tcStmt(bs, classname, class_env, locals, globals, s.ret));
+        if (s.name !== "__init__" && s.ret !== "none" && !isreturn) {
+          if (typeof s.ret == "object" && s.ret.class !== "none") {
+            throw new Error("TYPE ERROR: Incorrect return value, expected" + s.ret.class);
+          }
+          else if (typeof s.ret !== "object") {
+            throw new Error("TYPE ERROR: Incorrect return value, expected" + s.ret);
+          }
+        }
+        if (s.name == "__init__") {
+          if (s.ret == "none" || s.ret == "int" || s.ret == "bool") {
+            throw new Error("TYPE ERROR: Incorrect return value");
+          }
+          if (typeof s.ret === "object" && s.ret.class !== classname) {
+            throw new Error("TYPE ERROR: Incorrect return value");
+          }
+        }
+        if (s.ret === "object") {
+          s.ret = { tag: "object", class: classname };
+        }
+
+        isreturn = false;
+        locals.clear();
+        return { ...s, body: newStmts };
+
+      }
+      case "expr": {
+        const ret = tcExpr(s.expr, classname, class_env, locals, globals);
+        s.a = ret.a;
+        return { ...s, expr: ret };
+      }
+      case "return": {
+        const valTyp = tcExpr(s.value, classname, class_env, locals, globals);
+        if (valTyp.a !== currentReturn) {
+          if (typeof valTyp.a !== "string" && typeof currentReturn !== "string") {
+            if (valTyp.a.class !== currentReturn.class) {
+              throw new Error(`TYPE ERROR: ${valTyp.a} returned, ${currentReturn} expected.`);
+            }
+          }
+          else if (typeof valTyp.a == "string" && typeof currentReturn == "string") {
             throw new Error(`TYPE ERROR: ${valTyp.a} returned, ${currentReturn} expected.`);
           }
-        }
-        else if (typeof valTyp.a == "string" && typeof currentReturn == "string") {
-          throw new Error(`TYPE ERROR: ${valTyp.a} returned, ${currentReturn} expected.`);
-        }
-        else {
-          if (typeof currentReturn == "object" && valTyp.a !== "none") {
-            throw new Error(`${valTyp.a} returned, ${currentReturn} expected.`);
+          else {
+            if (typeof currentReturn == "object" && valTyp.a !== "none") {
+              throw new Error(`${valTyp.a} returned, ${currentReturn} expected.`);
+            }
           }
         }
+        isreturn = true;
+        return { ...s, value: valTyp };
       }
-      isreturn = true;
-      return { ...s, value: valTyp };
-    }
-    case "clsdef": {
+      case "clsdef": {
 
-      let cv: ClsField[] = []
-      s.varDefs.forEach(v => {
-        if (v.tag == "vardef") {
-          v.value = tcExpr(v.value, classname, class_env, locals, globals);
-          cv.push({ name: v.name, type: v.a })
-        }
-      });
-      class_env.class_variables.set(s.name, cv);
-      s.methodDefs.forEach(m => {
-        if (m.tag == "define") {
-          m = tcStmt(m, s.name, class_env, locals, globals, currentReturn);
-        }
-      });
-      return s;
+        let cv: ClsField[] = []
+        s.varDefs.forEach(v => {
+          if (v.tag == "vardef") {
+            v.value = tcExpr(v.value, classname, class_env, locals, globals);
+            cv.push({ name: v.name, type: v.a })
+          }
+        });
+        class_env.class_variables.set(s.name, cv);
+        s.methodDefs.forEach(m => {
+          if (m.tag == "define") {
+            m = tcStmt(m, s.name, class_env, locals, globals, currentReturn);
+          }
+        });
+        return s;
+      }
     }
+  } catch (e) {
+    throw new Error(`TYPE ERROR: e undefined`);
   }
 }
 
@@ -385,7 +389,7 @@ export function tcProgram(p: Stmt<any>[]): Stmt<Type>[] {
   const globals = new Map<string, Type>();
   return p.map(s => {
     if (s.tag === "vardef") {
-      const class_env : ClsEnv = {
+      const class_env: ClsEnv = {
         class_methods: class_meth,
         class_variables: class_vars
       }
@@ -402,7 +406,7 @@ export function tcProgram(p: Stmt<any>[]): Stmt<Type>[] {
       return { ...s, value: rhs };
     }
     else {
-      const class_env : ClsEnv = {
+      const class_env: ClsEnv = {
         class_methods: class_meth,
         class_variables: class_vars
       }
