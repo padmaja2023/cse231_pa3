@@ -60,8 +60,6 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env): Array<string> {
     case "true": return [`(i32.const 1)`];
     case "false": return [`(i32.const 0)`];
     case "id":
-      // Since we type-checked for making sure all variable exist, here we
-      // just check if it's a local variable and assume it is global if not
       if (expr.name == "none") {
         return [];
       }
@@ -78,6 +76,20 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env): Array<string> {
         return stmts.concat(`(call $not_operator)`);
       }
       return [`(i32.const 0)`].concat(stmts, opstmts);
+    }
+    case "binop": {
+      const lhsExprs = codeGenExpr(expr.lhs, locals);
+      const rhsExprs = codeGenExpr(expr.rhs, locals);
+      const opstmts = codeGenOps.get(expr.op);
+      if (expr.op === "is") {
+        if (lhsExprs.length == 0) {
+          lhsExprs.push(`(i32.const 0)`);
+        }
+        if (rhsExprs.length == 0) {
+          rhsExprs.push(`(i32.const 0)`);
+        }
+      }
+      return [...lhsExprs, ...rhsExprs, ...[opstmts]];
     }
     case "clsvar": {
       var val_exp: Array<string> = codeGenExpr(expr.expr, locals);
@@ -107,7 +119,6 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env): Array<string> {
       var wasm_stmts: Array<string> = [];
       var size = classvarcount.get(classname);
       classvars.get(classname).forEach((value: [number, Expr<any>], key: string) => {
-        var variable_name = key;
         var index = value[0] * 4;
         var varr_value: any = value[1];
         if (value[1].tag == "number") {
@@ -124,21 +135,6 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env): Array<string> {
       wasm_stmts.push(`(global.set $heap)`);
       return wasm_stmts;
     }
-    // case "clsmethod":{}
-    case "binop": {
-      const lhsExprs = codeGenExpr(expr.lhs, locals);
-      const rhsExprs = codeGenExpr(expr.rhs, locals);
-      const opstmts = codeGenOps.get(expr.op);
-      if (expr.op === "is") {
-        if (lhsExprs.length == 0) {
-          lhsExprs.push(`(i32.const 0)`);
-        }
-        if (rhsExprs.length == 0) {
-          rhsExprs.push(`(i32.const 0)`);
-        }
-      }
-      return [...lhsExprs, ...rhsExprs, ...[opstmts]];
-    }
     case "print":
       const valStmts = expr.args.map(e => codeGenExpr(e, locals)).flat();
       var toCall = "print_bool";
@@ -152,7 +148,6 @@ export function codeGenExpr(expr: Expr<Type>, locals: Env): Array<string> {
   }
 }
 export function codeGenStmt(stmt: Stmt<Type>, locals: Env, classname: string, allFuns: string): Array<string> {
-
   switch (stmt.tag) {
     case "if": {
       var if_condition = codeGenExpr(stmt.if_condition, locals);
