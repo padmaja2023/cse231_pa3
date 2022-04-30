@@ -299,7 +299,7 @@ export function tcStmt(s: Stmt<any>, classname: string, class_env: ClsEnv,
         return s;
       }
       case "pass": {
-        return s;
+        return {...s, a: "none"};
       }
     }
   } catch (e) {
