@@ -31,15 +31,6 @@ function variableNames(stmts: Stmt<Type>[]): string[] {
   });
   return vars;
 }
-function classdefs(stmts: Stmt<Type>[]): Stmt<Type>[] {
-  return stmts.filter(stmt => stmt.tag === "clsdef");
-}
-function nonclassdefs(stmts: Stmt<Type>[]): Stmt<Type>[] {
-  return stmts.filter(stmt => stmt.tag !== "clsdef");
-}
-function varsFunsStmts(stmts: Stmt<Type>[]): [string[], Stmt<Type>[], Stmt<Type>[]] {
-  return [variableNames(stmts), classdefs(stmts), nonclassdefs(stmts)];
-}
 
 export async function run_compiler(watSource: string, config: any): Promise<number> {
   const wabtApi = await wabt();
@@ -319,13 +310,20 @@ export function setClassVars(stmts: Stmt<Type>[]) {
   });
 }
 
+function getGlobals(stmts: Stmt<Type>[]): [string[], Stmt<Type>[], Stmt<Type>[]] {
+  const varDefs = variableNames(stmts)
+  const classDefs = stmts.filter(stmt => stmt.tag === "clsdef");
+  const globDefs = stmts.filter(stmt => stmt.tag === "clsdef");
+  return [varDefs, classDefs, globDefs];
+}
+
 export function compile(source: string): string {
   let ast = parseProgram(source);
   ast = tcProgram(ast);
   setClassVars(ast);
 
   const emptyEnv = new Map<string, boolean>();
-  const [vars, classdefs, nonclassdefs] = varsFunsStmts(ast);
+  const [vars, classdefs, nonclassdefs] = getGlobals(ast);
   const funsCode: string[] = classdefs.map(f => codeGenStmt(f, emptyEnv, "none", "")).map(f => f.join("\n"));
   const allFuns = funsCode.join("\n\n");
 
